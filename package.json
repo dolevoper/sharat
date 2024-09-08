@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "mime": "^4.0.4",
-    "portfinder": "^1.0.32"
+    "portfinder": "^1.0.32",
+    "typescript": "^5.5.4"
   }
 }

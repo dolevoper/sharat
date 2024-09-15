@@ -11,6 +11,8 @@ const cwd = process.cwd();
 const cache = new Map();
 const tsUrls = new Set();
 
+let compilerOptions;
+
 const server = createServer(async (req, res) => {
     console.log("->", req.method, req.url);
 
@@ -30,9 +32,9 @@ const server = createServer(async (req, res) => {
 
             if (contents.extension === ".ts") {
                 tsUrls.add(req.url);
-                const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists, "tsconfig.json");
-                const configFile = configPath !== undefined ? ts.readConfigFile(configPath, ts.sys.readFile).config : {};
-                const data = ts.transpileModule(contents.data.toString(), { fileName: contents.fileName, compilerOptions: configFile.compilerOptions }).outputText;
+                
+                const compilerOptions = getCompilerOptions();
+                const data = ts.transpileModule(contents.data.toString(), { fileName: contents.fileName, compilerOptions }).outputText;
                 
                 respond(req, res, 200, data, "text/javascript");
 
@@ -74,6 +76,7 @@ for await (const event of watcher) {
 
     if (event.filename.endsWith("tsconfig.json")) {
         tsUrls.forEach(cache.delete.bind(cache));
+        resetCompolerOptions();
     }
 }
 
@@ -130,4 +133,19 @@ function respondFromCache(req, res) {
     console.log("<-", req.method, req.url, status, "[FROM CACHE]");
     res.writeHead(status, { "Content-Type": contentType });
     res.end(data);
+}
+
+function getCompilerOptions() {
+    if (!compilerOptions) {
+        const configPath = ts.findConfigFile(cwd, ts.sys.fileExists, "tsconfig.json");
+        const configFile = configPath !== undefined ? ts.readConfigFile(configPath, ts.sys.readFile).config : {};
+    
+        compilerOptions = ts.convertCompilerOptionsFromJson(configFile.compilerOptions, process.cwd()).options;
+    }
+
+    return compilerOptions;
+}
+
+function resetCompolerOptions() {
+    compilerOptions = undefined;
 }

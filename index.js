@@ -8,8 +8,16 @@ import * as sass from "sass";
 
 const cwd = process.cwd();
 
+const cache = new Map();
+
 const server = createServer(async (req, res) => {
     console.log("->", req.method, req.url);
+
+    if (cache.has(req.url)) {
+        respondFromCache(req, res);
+
+        return;
+    }
 
     try {
         for (const contentsGetter of [getFileContents, getDirectoryContents, getTSContents, getJSContents]) {
@@ -46,7 +54,7 @@ const server = createServer(async (req, res) => {
     } catch (error) {
         console.error(error);
         
-        respond(req, res, 500, "<h1>Internal server error</h1>", "text/html");
+        respond(req, res, 500, "<h1>Internal server error</h1>", "text/html", true);
     }
 });
 
@@ -56,15 +64,25 @@ server.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
 
+const watcher = fs.watch(cwd, { recursive: true });
+
+for await (const event of watcher) {
+    console.log(event);
+    cache.clear();
+}
+
 async function getFileContents(url) {
     const filePath = path.join(cwd, url);
     const fileName = path.basename(filePath);
     const extension = path.extname(filePath);
 
+    // console.log(path.relative(cwd, filePath));
+
     try {
         const data = await fs.readFile(filePath);
+        const res = { fileName, extension, data };
 
-        return { fileName, extension, data };
+        return res;
     } catch (err) {
         if (err.code !== "ENOENT" && err.code !== "EISDIR") {
             throw err;
@@ -84,12 +102,28 @@ function getJSContents(url) {
     return getFileContents(`${url}.js`);
 }
 
-function respond(req, res, status, data, contentType) {
+function respond(req, res, status, data, contentType, skipCache) {
+    if (!skipCache) {
+        cache.set(req.url, { status, data, contentType });
+    }
+
     if (res.headersSent) {
         return;
     }
 
     console.log("<-", req.method, req.url, status);
+    res.writeHead(status, { "Content-Type": contentType });
+    res.end(data);
+}
+
+function respondFromCache(req, res) {
+    if (res.headersSent) {
+        return;
+    }
+
+    const { status, data, contentType } = cache.get(req.url);
+
+    console.log("<-", req.method, req.url, status, "[FROM CACHE]");
     res.writeHead(status, { "Content-Type": contentType });
     res.end(data);
 }

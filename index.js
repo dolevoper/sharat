@@ -67,16 +67,14 @@ server.listen(port, () => {
 const watcher = fs.watch(cwd, { recursive: true });
 
 for await (const event of watcher) {
-    console.log(event);
-    cache.clear();
+    cache.delete(`/${event.filename}`);
+    cache.delete(`/${event.filename.replace(/\.ts|\.js|index.html$/, "")}`);
 }
 
 async function getFileContents(url) {
     const filePath = path.join(cwd, url);
     const fileName = path.basename(filePath);
     const extension = path.extname(filePath);
-
-    // console.log(path.relative(cwd, filePath));
 
     try {
         const data = await fs.readFile(filePath);

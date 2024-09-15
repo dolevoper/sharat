@@ -24,9 +24,7 @@ const server = createServer(async (req, res) => {
                 const configFile = configPath !== undefined ? ts.readConfigFile(configPath, ts.sys.readFile).config : {};
                 const data = ts.transpileModule(contents.data.toString(), { fileName: contents.fileName, compilerOptions: configFile.compilerOptions }).outputText;
                 
-                console.log("<-", req.method, req.url, 200);
-                res.writeHead(200, { "Content-Type": "text/javascript" });
-                res.end(data);
+                respond(req, res, 200, data, "text/javascript");
 
                 return;
             }
@@ -34,37 +32,21 @@ const server = createServer(async (req, res) => {
             if (contents.extension === ".scss") {
                 const data = (await sass.compileStringAsync(contents.data.toString())).css;
 
-                console.log("<-", req.method, req.url, 200);
-                res.writeHead(200, { "Content-Type": "text/css" });
-                res.end(data);
+                respond(req, res, 200, data, "text/css");
 
                 return;
             }
 
-            console.log("<-", req.method, req.url, 200);
-            res.writeHead(200, { "Content-Type": mime.getType(contents.extension) ?? "text/html" });
-            res.end(contents.data);
+            respond(req, res, 200, contents.data, mime.getType(contents.extension) ?? "text/html");
 
             return;
         }
 
-        if (res.headersSent) {
-            return;
-        }
-
-        console.log("<-", req.method, req.url, 404);
-        res.writeHead(404, { "Content-Type": "text/html" });
-        res.end("<h1>Not found</h1>");
+        respond(req, res, 404, "<h1>Not found</h1>", "text/html");
     } catch (error) {
         console.error(error);
         
-        if (res.headersSent) {
-            return;
-        }
-        
-        console.log("<-", req.method, req.url, 500);
-        res.writeHead(500, { "Content-Type": "text/html" });
-        res.end("<h1>Internal server error</h1>");
+        respond(req, res, 500, "<h1>Internal server error</h1>", "text/html");
     }
 });
 
@@ -100,4 +82,14 @@ function getTSContents(url) {
 
 function getJSContents(url) {
     return getFileContents(`${url}.js`);
+}
+
+function respond(req, res, status, data, contentType) {
+    if (res.headersSent) {
+        return;
+    }
+
+    console.log("<-", req.method, req.url, status);
+    res.writeHead(status, { "Content-Type": contentType });
+    res.end(data);
 }

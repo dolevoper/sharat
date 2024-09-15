@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { createServer } from "node:http";
 import * as path from "node:path";
 import * as fs from "node:fs/promises";

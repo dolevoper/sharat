@@ -1,12 +1,14 @@
 import * as path from "node:path";
 import * as ts from "typescript";
+import * as sass from "sass";
 import * as logger from "./logger.js";
 
 const transformers = new Map([
     [".ts", tsTransformer],
+    [".scss", scssTransformer],
 ]);
 
-export function transform(content) {
+export async function transform(content) {
     const transformer = transformers.get(content.extension);
 
     if (!transformer) {
@@ -14,7 +16,7 @@ export function transform(content) {
         return content;
     }
 
-    return transformer(content);
+    return await transformer(content);
 }
 
 function tsTransformer(content) {
@@ -43,4 +45,15 @@ function getCompilerOptions() {
     }
 
     return compilerOptions;
+}
+
+async function scssTransformer(content) {
+    logger.debug("using scss transformer on", content.filePath);
+    const data = (await sass.compileStringAsync(content.data.toString())).css;
+
+    return {
+        ...content,
+        data,
+        contentType: "text/css",
+    };
 }

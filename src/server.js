@@ -35,7 +35,12 @@ export const server = createServer(async function (req, res) {
                     return;
                 }
 
-                const transformedContent = transformer.transform(content);
+                const transformedContent = await transformer.transform(content);
+
+                if (res.headersSent) {
+                    return;
+                }
+                
                 const contentType = transformedContent.contentType ?? mime.getType(transformedContent.extension);
 
                 logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", transformedContent.filePath, `(${contentType})`);

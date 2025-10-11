@@ -42,7 +42,7 @@ async function _load(relativePath) {
         const data = await fs.readFile(filePath);
         const extension = path.extname(filePath);
 
-        return { data, extension, relativePath };
+        return { data, extension, filePath };
     } catch (err) {
         if (err.code !== "ENOENT" && err.code !== "EISDIR") {
             throw err;

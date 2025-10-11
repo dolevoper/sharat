@@ -2,8 +2,9 @@
   "name": "sharat",
   "version": "0.0.3",
   "type": "module",
-  "main": "index.js",
-  "bin": "index.js",
+  "main": "src/index.js",
+  "bin": "src/index.js",
+  "repository": "dolevoper/sharat",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "dotenv": "^17.2.3",
     "mime": "^4.0.4",
     "portfinder": "^1.0.32",
     "sass": "^1.78.0",

@@ -1,8 +1,7 @@
 import { createServer } from "node:http";
-import * as path from "node:path";
-import * as fs from "node:fs/promises";
 import mime from "mime";
 import * as logger from "./logger.js";
+import * as contentLoader from "./contentLoader.js";
 
 export const server = createServer(async function (req, res) {
     const { pathname } = new URL(`http://localhost${req.url}`);
@@ -19,34 +18,34 @@ export const server = createServer(async function (req, res) {
             break;
         case method === "GET":
             logger.info("<-", "\x1b[32m", method, "\x1b[0m", req.url);
-            const filePath = path.join(process.cwd(), pathname);
 
             try {
-                const data = await fs.readFile(filePath);
+                const content = await contentLoader.load(pathname);
 
                 if (res.headersSent) {
                     return;
                 }
 
-                const extension = path.extname(filePath);
-                const contentType = mime.getType(extension);
-
-                logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", pathname, "(", contentType, ")");
-                res.writeHead(200, { "content-type": contentType });
-                res.end(data);
-            } catch (err) {
-                if (err.code !== "ENOENT" && err.code !== "EISDIR") {
-                    logger.error(err);
-                    logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", "\x1b[31m500\x1b[0m");
-                    res.writeHead(500);
+                if (!content) {
+                    logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", "\x1b[33m404\x1b[0m");
+                    res.writeHead(404);
                     res.end();
 
                     return;
                 }
 
-                logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", "\x1b[33m404\x1b[0m");
-                res.writeHead(404);
+                const contentType = mime.getType(content.extension);
+
+                logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", pathname, "(", contentType, ")");
+                res.writeHead(200, { "content-type": contentType });
+                res.end(content.data);
+            } catch (err) {
+                logger.error(err);
+                logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", "\x1b[31m500\x1b[0m");
+                res.writeHead(500);
                 res.end();
+
+                return;
             }
 
             break;

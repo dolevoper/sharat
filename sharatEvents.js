@@ -1,18 +1,21 @@
 const serverEvents = new EventSource("__sharat_events__");
 
-serverEvents.addEventListener("message", function (e) {
-    const oldScriptElement = document.querySelector(`script[src='${e.data}']`);
+serverEvents.addEventListener("refresh", () => {
+    window.location.reload();
+});
+
+serverEvents.addEventListener("replaceScript", function (e) {
+    console.log(e.data);
+    const oldScriptElement = document.querySelector(`script[src^='${e.data}'], script[src^='/${e.data}'], script[src^='./${e.data}']`);
 
     if (!oldScriptElement) {
         return;
     }
 
-    oldScriptElement.remove();
-
     const newScriptElement = document.createElement("script");
 
-    newScriptElement.src = e.data;
+    newScriptElement.src = `${e.data}?v=${Date.now()}`;
     newScriptElement.type = oldScriptElement.type;
 
-    document.head.appendChild(newScriptElement);
+    oldScriptElement.replaceWith(newScriptElement);
 });

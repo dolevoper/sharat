@@ -22,6 +22,10 @@ const cache = new Map([
     ["/__sharat_events__.js", { status: 200, data: sharatEventsScript, contentType: "text/javascript", silent: !process.env.SHOW_DEBUG_LOGS }],
 ]);
 const tsUrls = new Set();
+const moduleClusters = new Map();
+const moduleToModuleCluster = new Map();
+
+const port = await getPortPromise({ port: 3000 });
 
 let compilerOptions;
 let eventSubscribers = [];
@@ -35,7 +39,11 @@ const server = createServer(async (req, res) => {
 
     console.log("->", req.method, req.url);
 
-    if (cache.has(req.url)) {
+    const url = new URL(`http://localhost:${port}${req.url}`);
+
+    req.pathname = url.pathname;
+
+    if (cache.has(req.pathname)) {
         respondFromCache(req, res);
 
         return;
@@ -43,17 +51,38 @@ const server = createServer(async (req, res) => {
 
     try {
         for (const contentsGetter of [getFileContents, getDirectoryContents, getTSContents, getJSContents]) {
-            const contents = await contentsGetter(req.url);
+            const contents = await contentsGetter(req.pathname);
+            debug(contents);
 
             if (!contents) {
                 continue;
             }
 
+            if (contents.extension === ".js" || contents.extension === ".ts") {
+                const referrer = new URL(req.headers.referer);
+                const clusterRoot = referrer.pathname === "/" ? req.pathname : moduleToModuleCluster.get(referrer.pathname);
+
+                moduleToModuleCluster.set(req.pathname, clusterRoot);
+                moduleClusters.set(
+                    clusterRoot,
+                    [...(moduleClusters.get(clusterRoot) ?? []), req.pathname],
+                );
+
+                debug("updated module clusters", moduleClusters, moduleToModuleCluster);
+            }
+
             if (contents.extension === ".ts") {
-                tsUrls.add(req.url);
+                tsUrls.add(req.pathname);
 
                 const compilerOptions = getCompilerOptions();
-                const data = ts.transpileModule(contents.data.toString(), { fileName: contents.fileName, compilerOptions }).outputText;
+                const code = contents.data
+                    .toString()
+                    .replaceAll(
+                        /^(import .*)("|')(;?)$/gm,
+                        `$1?t=${Date.now()}$2$3`,
+                    );
+                debug(code);
+                const data = ts.transpileModule(code, { fileName: contents.fileName, compilerOptions }).outputText;
 
                 respond(req, res, 200, data, "text/javascript");
 
@@ -70,7 +99,7 @@ const server = createServer(async (req, res) => {
 
             const data = contents.data
                 .toString()
-                .replace("</body>", '<script src="__sharat_events__.js"></script></body>');
+                .replace("</body>", '<script src="__sharat_events__.js" type="module"></script></body>');
 
             respond(req, res, 200, data, mime.getType(contents.extension) ?? "text/html");
 
@@ -85,8 +114,6 @@ const server = createServer(async (req, res) => {
     }
 });
 
-const port = await getPortPromise({ port: 3000 });
-
 server.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
@@ -95,22 +122,49 @@ const watcher = fs.watch(cwd, { recursive: true });
 
 for await (const event of watcher) {
     debug(`detected changes to ${event.filename} ${event.eventType}`);
-    cache.delete(`/${event.filename}`);
-    cache.delete(`/${event.filename.replace(/\.ts|\.js|index.html$/, "")}`);
+    const fileUrl = `/${event.filename.replaceAll("\\", "/")}`;
+    cache.delete(fileUrl);
+    cache.delete(fileUrl.replace(/(\.ts|\.js|index.html)$/, ""));
 
+    if (event.filename.endsWith("tsconfig.json")) {
+        tsUrls.forEach(cache.delete.bind(cache));
+        tsUrls.clear();
+        moduleClusters.clear();
+        moduleToModuleCluster.clear();
+
+        resetCompilerOptions();
+        updateSubscribers("refresh");
+
+        continue;
+    }
+
+    // const rootModule = moduleTree.get(fileUrl) ?? moduleTree.get(fileUrl.replace(/(\.ts|\.js)$/, ""));
+    // const moduleToReload = rootModule ?? fileUrl.slice(1);
+
+    // cache.delete(`/${rootModule}`);
+    // let moduleToReload = fileUrl;
+    // let parentModule = moduleTree.get(moduleToReload) ?? moduleTree.get(moduleToReload.replace(/(\.ts|\.js)$/, ""));
+
+    // while (parentModule) {
+    //     cache.delete(parentModule);
+
+    //     moduleToReload = parentModule;
+    //     parentModule = moduleTree.get(moduleToReload) ?? moduleTree.get(moduleToReload.replace(/(\.ts|\.js)$/, ""));
+    // }
+
+    // updateSubscribers("replaceScript", moduleToReload.slice(1));
+}
+
+function updateSubscribers(event, message) {
     debug(`updating ${eventSubscribers.length} subscribers`);
     eventSubscribers.forEach((res) => {
         if (res.writableEnded) {
             return;
         }
 
-        res.write(`data: ${event.filename}\n\n`);
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${message}\n\n`);
     });
-
-    if (event.filename.endsWith("tsconfig.json")) {
-        tsUrls.forEach(cache.delete.bind(cache));
-        resetCompolerOptions();
-    }
 }
 
 async function getFileContents(url, basePath = cwd) {
@@ -144,7 +198,7 @@ function getJSContents(url) {
 
 function respond(req, res, status, data, contentType, skipCache) {
     if (!skipCache) {
-        cache.set(req.url, { status, data, contentType });
+        cache.set(req.pathname, { status, data, contentType });
     }
 
     if (res.headersSent) {
@@ -161,7 +215,7 @@ function respondFromCache(req, res) {
         return;
     }
 
-    const { status, data, contentType, silent } = cache.get(req.url);
+    const { status, data, contentType, silent } = cache.get(req.pathname);
 
     if (!silent) {
         console.log("<-", req.method, req.url, status, "[FROM CACHE]");
@@ -182,7 +236,7 @@ function getCompilerOptions() {
     return compilerOptions;
 }
 
-function resetCompolerOptions() {
+function resetCompilerOptions() {
     compilerOptions = undefined;
 }
 

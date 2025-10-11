@@ -34,9 +34,9 @@ export const server = createServer(async function (req, res) {
                     return;
                 }
 
-                const contentType = mime.getType(content.extension);
+                const contentType = content.extension === ".ts" ? "text/javascript" : mime.getType(content.extension);
 
-                logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", pathname, "(", contentType, ")");
+                logger.info("->", "\x1b[32m", method, "\x1b[0m", req.url, "-", content.relativePath, "(", contentType, ")");
                 res.writeHead(200, { "content-type": contentType });
                 res.end(content.data);
             } catch (err) {

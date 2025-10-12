@@ -47,6 +47,10 @@ function getCompilerOptions() {
     return compilerOptions;
 }
 
+export function invalidateCompilerOptions() {
+    compilerOptions = undefined;
+}
+
 async function scssTransformer(content) {
     logger.debug("using scss transformer on", content.filePath);
     const data = (await sass.compileStringAsync(content.data.toString())).css;

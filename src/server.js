@@ -1,10 +1,9 @@
 import { createServer } from "node:http";
 import mime from "mime";
 import * as logger from "./logger.js";
+import * as cache from "./cache.js";
 import * as contentLoader from "./contentLoader.js";
 import * as transformer from "./transformer.js";
-
-const cache = new Map();
 
 export const server = createServer(async function (req, res) {
     const { pathname } = new URL(`http://localhost${req.url}`);

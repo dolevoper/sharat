@@ -1,12 +1,13 @@
 import * as path from "node:path";
-import { watch } from "fs/promises";
+import { watch } from "node:fs/promises";
 import * as logger from "./logger.js";
 import * as cache from "./cache.js";
 import * as transformer from "./transformer.js";
 
 const timeouts = new Map();
 const handlers = new Map([
-    ["tsconfig.json", tsConfigHandler]
+    ["tsconfig.json", tsConfigHandler],
+    ["sharat.env", restartApp],
 ]);
 
 const watcher = watch(process.cwd(), { recursive: true });
@@ -38,4 +39,9 @@ function tsConfigHandler() {
     logger.info("Invalidating all ts files in cache");
     transformer.invalidateCompilerOptions();
     cache.invalidateTsFiles();
+}
+
+function restartApp() {
+    logger.info("Restarting sharat...");
+    process.exit(0);
 }

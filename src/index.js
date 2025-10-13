@@ -1,16 +1,24 @@
 #!/usr/bin/env node
 
-import "./dotenv.js";
+import { spawn } from "node:child_process";
+import * as path from "node:path";
 
-import { getPortPromise } from "portfinder";
-import { server } from "./server.js";
-import * as logger from "./logger.js";
-import * as fsWatcher from "./fsWatcher.js";
+let currentAppProcess = startApp();
 
-const port = await getPortPromise({ port: 3000 });
+setTimeout(keepAppRunning);
 
-server.listen(port, () => {
-    logger.info(`Server is running on http://localhost:${port}`);
-});
+function startApp() {
+    return spawn(process.execPath, [path.join(import.meta.dirname, "app.js")], {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: "inherit",
+    });
+}
 
-fsWatcher.start();
+function keepAppRunning() {
+    currentAppProcess.addListener("exit", () => {
+        currentAppProcess = startApp();
+
+        setTimeout(keepAppRunning);
+    });
+}

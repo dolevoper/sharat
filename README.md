@@ -12,5 +12,5 @@ Some of Sharat's features:
 4. Watch for file changes and refresh the page
 
 > [!CAUTION]
-> DO NOT USE Sharat IN PRODUCTION!
+> **DO NOT USE Sharat IN PRODUCTION!**  
 > Sharat is meant for learning purposes and POCs, please compile and serve your application properly in production.

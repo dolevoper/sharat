@@ -6,6 +6,8 @@ import * as logger from "./logger.js";
 const transformers = new Map([
     [".ts", tsTransformer],
     [".scss", scssTransformer],
+    [".html", htmlTransformer],
+    [".htm", htmlTransformer],
 ]);
 
 export async function transform(content) {
@@ -59,5 +61,17 @@ async function scssTransformer(content) {
         ...content,
         data,
         contentType: "text/css",
+    };
+}
+
+function htmlTransformer(content) {
+    logger.debug("using html transformer on", content.filePath);
+    const data = content.data
+        .toString()
+        .replace("</body>", '<script src="__sharat_events__.js" type="module"></script></body>');
+
+    return {
+        ...content,
+        data,
     };
 }

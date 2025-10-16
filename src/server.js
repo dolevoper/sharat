@@ -1,9 +1,14 @@
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+import * as path from "node:path";
 import mime from "mime";
 import * as logger from "./logger.js";
 import * as cache from "./cache.js";
 import * as contentLoader from "./contentLoader.js";
 import * as transformer from "./transformer.js";
+import * as eventsHandler from "./eventsHandler.js";
+
+const sharatEventsScript = readFileSync(path.join(import.meta.dirname, "..", "public", "sharatEvents.js"));
 
 export const server = createServer(async function (req, res) {
     const { pathname } = new URL(`http://localhost${req.url}`);
@@ -12,11 +17,21 @@ export const server = createServer(async function (req, res) {
     switch (true) {
         case method === "GET" && pathname === "/__sharat_events__.js":
             logger.debug("<-", "\x1b[32m", method, "\x1b[0m", req.url);
-            // return sharatEvents.js
+            
+            res.writeHead(200, { "content-type": "text/javascript" });
+            res.end(sharatEventsScript);
+
             break;
         case method === "GET" && pathname === "/__sharat_events__":
             logger.debug("<-", "\x1b[32m", method, "\x1b[0m", req.url);
-            // register event listener
+
+            eventsHandler.subscribe(res);
+
+            req.on("close", () => {
+                logger.debug("Removing event subscriber");
+                eventsHandler.unsubscribe(res);
+            });
+
             break;
         case method === "GET":
             logger.info("<-", "\x1b[32m", method, "\x1b[0m", req.url);
@@ -72,7 +87,7 @@ export const server = createServer(async function (req, res) {
             break;
         default:
             logger.error(`Unsupported request: ${method} ${req.url}`);
-
+            res.writeHead(400);
             res.end();
     }
 });

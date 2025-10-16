@@ -3,6 +3,7 @@ import { watch } from "node:fs/promises";
 import * as logger from "./logger.js";
 import * as cache from "./cache.js";
 import * as transformer from "./transformer.js";
+import * as eventsHandler from "./eventsHandler.js";
 
 const timeouts = new Map();
 const handlers = new Map([
@@ -23,6 +24,7 @@ export async function start() {
             const handler = handlers.get(basename) ?? defaultHandler;
 
             handler(filename);
+            eventsHandler.signalRefresh();
 
             timeouts.delete(filename);
         }, 700);

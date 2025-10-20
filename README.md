@@ -45,6 +45,8 @@ SHOW_DEBUG_LOGS=true
 ```
 
 ## Change log
+* v0.2.0
+    * Ignore changes to git related files and files from .gitignore
 * v0.1.0
     * Added auto refresh on file changes
     * Added `SHOW_DEBUG_LOGS` environment variable
